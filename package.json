@@ -1,0 +1,16 @@
+{
+  "name": "mcp-server-dev-research",
+  "version": "1.0.0",
+  "description": "Deep Research MCP server for coding issues, errors, Stack Overflow, GitHub, Reddit, and web articles",
+  "type": "module",
+  "main": "index.mjs",
+  "scripts": {
+    "start": "node index.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.6.0",
+    "cheerio": "^1.0.0",
+    "turndown": "^7.2.0"
+  }
+}
+
