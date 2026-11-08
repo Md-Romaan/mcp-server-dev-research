@@ -1,5 +1,9 @@
 # Dev Deep Research MCP Server (`mcp-server-dev-research`)
 
+[![GitHub Release](https://img.shields.io/github/v/release/Md-Romaan/mcp-server-dev-research?color=blue&logo=github)](https://github.com/Md-Romaan/mcp-server-dev-research/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![MCP Compatible](https://img.shields.io/badge/MCP-Compatible-green.svg)](https://modelcontextprotocol.io/)
+
 ![Dev Deep Research Architecture](./architecture.jpg)
 
 A high-performance, 100% free Model Context Protocol (MCP) server designed specifically for developers and AI coding assistants. It executes deep research on coding bugs, compiler crashes, runtime exceptions, and dependency issues across **Stack Overflow**, **GitHub Closed Issues**, **Reddit dev communities**, and **technical documentation** simultaneously.
