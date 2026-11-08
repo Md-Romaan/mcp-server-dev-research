@@ -43,13 +43,28 @@ Here is why `dev-research` delivers dramatically superior results:
 | Capability | Standard Search in AI (Claude / Cursor / Windsurf) | Dev Deep Research MCP |
 | :--- | :--- | :--- |
 | **Output Type** | SEO snippets and generic web links | **Verified code fixes, raw Git diffs, and step-by-step solutions** |
+| **What the LLM Actually Receives** | Surface-level 2-sentence meta descriptions | **Full question bodies, accepted answer code blocks, and top maintainer comments embedded directly in JSON** |
 | **Context Hygiene** | Returns 50KB+ HTML with ads, cookies, and navbars | **Clean, LLM-optimized Markdown** isolating only the solution |
+| **Intent Awareness** | Static search treating all queries identically | **Smart Intent Classifier**: Adapts between bug troubleshooting vs general architecture & guides |
 | **Verified Answers** | AI must guess which community answer works | Auto-detects `isAccepted: true` with vote scores via official APIs |
 | **Merged PR Diffs** | ❌ Not available | **Extracts lines added (`+`) and removed (`-`) from merged fix PRs** |
 | **GitHub Closed Issues** | Generic repo links or issue titles | Extracts **maintainer resolutions and top-reacted solution comments** |
 | **Anti-Bot & Blocks** | Often blocked by Cloudflare (403) or CAPTCHAs | Bypasses blocks using official REST endpoints and low-overhead mirrors |
 | **Error Sanitization** | Sends raw machine paths (`C:\Users\...`) that break queries | Auto-normalizes error traces, line numbers, and Webpack prefixes |
 | **Speed & Token Savings** | High latency & token waste | **In-memory LRU caching** with near 0ms lookups on repeated errors |
+
+---
+
+## 🧠 How the LLM Understands Results: Direct Content Injection
+
+Unlike standard search tools that return only URLs or shallow snippet descriptions—forcing the AI to make multiple sequential HTTP calls to read pages—`dev-research` performs **full inline content extraction**:
+
+1. **Embedded Answer Bodies & Code Blocks:** Stack Overflow accepted answers are converted to pure Markdown and passed directly inside the tool output payload (`bodyMd`), allowing the model to read the exact implementation without leaving the conversation turn.
+2. **Top Discussion Comments:** Closed GitHub issue discussions include the top-reacted resolution comments (`topComments`) with user handles and reaction counts.
+3. **Smart Intent Classification:** Automatically detects whether a query is a runtime/compiler crash or an architectural how-to, dynamically adapting search parameters to retrieve solutions or authoritative guides.
+4. **Unified Git Diffs:** PR fix queries return the actual `diff` text (`+` and `-` lines) directly to the LLM for immediate code synthesis.
+
+URLs are provided purely for citation; the LLM reasons over the **rich, verified code and community solutions injected directly into its context**.
 
 ---
 
