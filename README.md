@@ -8,16 +8,43 @@ Unlike standard web searches that return superficial SEO links, this MCP server 
 
 ---
 
-## 🚀 Why Use This MCP Server Over Normal Search?
+## 🚀 Why This MCP is Better Than Built-in Search in Claude, Cursor, Windsurf & Copilot
 
-| Capability | Standard Web Search (Google / DDG) | Dev Deep Research MCP |
+Modern AI coding assistants (like **Claude Code / Desktop**, **Cursor IDE**, **Windsurf**, **GitHub Copilot Chat**, and **ChatGPT**) have built-in web search capabilities. However, when debugging code and library crashes, their standard search falls short. 
+
+Here is why `dev-research` delivers dramatically superior results:
+
+### 1. Claude (Claude Code / Desktop Web Search)
+* **What Claude's Search Does:** Claude's native web search functions as a general search engine. It queries general search indexes and receives text summaries or raw snippets.
+* **Why `dev-research` is Better:**
+  * **Zero Cloudflare Blocks:** Claude often gets `403 Forbidden` or CAPTCHA-blocked when attempting to read Stack Overflow answers or Reddit threads directly. `dev-research` talks to the underlying **StackExchange REST API** and specialized mirrors, guaranteeing clean access.
+  * **Verified Accepted Answers:** Standard search dumps entire question pages. `dev-research` isolates `is_accepted: true` answers and vote metrics, preventing Claude from recommending unverified or downvoted workarounds.
+
+### 2. Cursor IDE & Windsurf (Built-in Web Scraping)
+* **What Cursor & Windsurf Do:** When Cursor or Windsurf searches the web (`@web`), it extracts search result blurbs and occasionally fetches page DOMs.
+* **Why `dev-research` is Better:**
+  * **Actual Git Diffs via `find_commit_fix`:** Cursor cannot pull the exact lines of code maintainers committed to fix an issue. `dev-research` extracts the raw `git diff` (`+` and `-` changes) from merged PRs so the AI knows the exact patch syntax.
+  * **Query Sanitization:** Cursor often sends your machine's full raw error log (including `C:\Users\YourName\...`, line numbers, and Webpack noise), which poisons general search queries and returns 0 results. `dev-research` automatically strips local path noise and bundler wrappers before searching.
+
+### 3. GitHub Copilot
+* **What Copilot Does:** Copilot searches public Bing results and official docs, but does not deeply cross-reference closed issues or developer discussions.
+* **Why `dev-research` is Better:**
+  * **Multi-Source Concurrency:** In one single turn, `dev-research` runs concurrent queries across **Stack Overflow + GitHub Issues + Merged PR Diffs + Reddit Discussions + Dev Docs**.
+  * **Context Window Hygiene:** A normal web scrape floods the LLM with 20KB–50KB of cookie banners, sidebars, and ads, degrading context quality. `dev-research` delivers ultra-dense, pure Markdown code blocks.
+
+---
+
+### 📊 Feature-by-Feature Comparison
+
+| Capability | Standard Search in AI (Claude / Cursor / Windsurf) | Dev Deep Research MCP |
 | :--- | :--- | :--- |
-| **Output Type** | SEO snippets and page links | **Verified code fixes, diffs, and step-by-step solutions** |
+| **Output Type** | SEO snippets and generic web links | **Verified code fixes, raw Git diffs, and step-by-step solutions** |
 | **Context Hygiene** | Returns 50KB+ HTML with ads, cookies, and navbars | **Clean, LLM-optimized Markdown** isolating only the solution |
-| **Verified Answers** | AI must guess which answer works | Auto-detects `isAccepted: true` with vote scores via official APIs |
-| **GitHub Closed Issues** | Returns generic repo links or issue titles | Extracts **maintainer resolutions and top-reacted solution comments** |
+| **Verified Answers** | AI must guess which community answer works | Auto-detects `isAccepted: true` with vote scores via official APIs |
+| **Merged PR Diffs** | ❌ Not available | **Extracts lines added (`+`) and removed (`-`) from merged fix PRs** |
+| **GitHub Closed Issues** | Generic repo links or issue titles | Extracts **maintainer resolutions and top-reacted solution comments** |
 | **Anti-Bot & Blocks** | Often blocked by Cloudflare (403) or CAPTCHAs | Bypasses blocks using official REST endpoints and low-overhead mirrors |
-| **Multi-Source Aggregation** | Searches generally across the open web | Concurrently queries **Stack Overflow + GitHub Issues + Reddit + Dev Articles** in a single call |
+| **Error Sanitization** | Sends raw machine paths (`C:\Users\...`) that break queries | Auto-normalizes error traces, line numbers, and Webpack prefixes |
 | **Speed & Token Savings** | High latency & token waste | **In-memory LRU caching** with near 0ms lookups on repeated errors |
 
 ---
