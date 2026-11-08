@@ -130,13 +130,12 @@ async function safeFetch(url, options = {}, timeoutMs = 8000) {
 // -------------------------------------------------------------
 async function searchStackOverflow(query, tags = '', limit = 3) {
   try {
-    // Attempt tagged query first, then fall back to untagged if 0 results
-    const fetchSO = async (withTag) => {
+    // Attempt tagged query first, then fall back to untagged, then title search
+    const fetchSO = async (withTag, useTitle = false) => {
       const tagParam = withTag && tags ? `&tagged=${encodeURIComponent(tags.replace(/[^a-zA-Z0-9.#-]/g, ''))}` : '';
-      const cleanQ = query.replace(/[^\w\s-]/g, ' ').trim();
-      const searchUrl = `https://api.stackexchange.com/2.3/search/advanced?order=desc&sort=votes&q=${encodeURIComponent(
-        cleanQ
-      )}${tagParam}&site=stackoverflow&pagesize=${limit}&filter=withbody`;
+      const cleanQ = cleanErrorQuery(query);
+      const queryParam = useTitle ? `&title=${encodeURIComponent(cleanQ)}` : `&q=${encodeURIComponent(cleanQ)}`;
+      const searchUrl = `https://api.stackexchange.com/2.3/search/advanced?order=desc&sort=votes${queryParam}${tagParam}&site=stackoverflow&pagesize=${limit}&filter=withbody`;
       const res = await safeFetch(searchUrl);
       if (!res.ok) return [];
       const data = await res.json();
@@ -146,6 +145,9 @@ async function searchStackOverflow(query, tags = '', limit = 3) {
     let items = tags ? await fetchSO(true) : [];
     if (!items.length) {
       items = await fetchSO(false);
+    }
+    if (!items.length) {
+      items = await fetchSO(false, true);
     }
 
     const results = [];
