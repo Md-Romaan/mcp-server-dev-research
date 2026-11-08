@@ -1,5 +1,7 @@
 # Dev Deep Research MCP Server (`mcp-server-dev-research`)
 
+![Dev Deep Research Architecture](./architecture.jpg)
+
 A high-performance, 100% free Model Context Protocol (MCP) server designed specifically for developers and AI coding assistants. It executes deep research on coding bugs, compiler crashes, runtime exceptions, and dependency issues across **Stack Overflow**, **GitHub Closed Issues**, **Reddit dev communities**, and **technical documentation** simultaneously.
 
 Unlike standard web searches that return superficial SEO links, this MCP server extracts **accepted answers, vote counts, maintainer resolutions, and raw code snippets directly into your AI assistant's context**.
@@ -84,3 +86,4 @@ npm install
 ## 📄 License
 
 MIT
+
