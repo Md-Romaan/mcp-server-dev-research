@@ -247,6 +247,66 @@ async function searchGitHubIssues(query, language = '', limit = 3) {
 }
 
 // -------------------------------------------------------------
+// 2B. Search Merged PRs and Commit Fixes (Git Diffs)
+// -------------------------------------------------------------
+async function findCommitFix(query, repository = '', limit = 3) {
+  try {
+    const cleanQ = cleanErrorQuery(query);
+    const repoFilter = repository ? `+repo:${encodeURIComponent(repository)}` : '';
+    const qString = `${encodeURIComponent(cleanQ)}+type:pr+is:merged${repoFilter}`;
+    const url = `https://api.github.com/search/issues?q=${qString}&sort=updated&order=desc&per_page=${limit}`;
+
+    const res = await safeFetch(url, {
+      headers: getGitHubHeaders(),
+    });
+
+    if (!res.ok) return [];
+    const data = await res.json();
+    const items = data.items || [];
+
+    const fixes = [];
+    for (const item of items) {
+      if (!item.pull_request?.url) continue;
+
+      const fixItem = {
+        title: item.title,
+        prUrl: item.html_url,
+        state: 'merged',
+        author: item.user?.login,
+        diff: '',
+      };
+
+      try {
+        // Try fetching via .diff on the web URL first (fast & reliable)
+        const webDiffRes = await safeFetch(`${item.html_url}.diff`);
+        if (webDiffRes.ok) {
+          const diffText = await webDiffRes.text();
+          fixItem.diff = diffText.slice(0, 4000);
+        } else {
+          // Fallback to GitHub REST API diff
+          const diffRes = await safeFetch(item.pull_request.url, {
+            headers: {
+              ...getGitHubHeaders(),
+              Accept: 'application/vnd.github.v3.diff',
+            },
+          });
+          if (diffRes.ok) {
+            const diffText = await diffRes.text();
+            fixItem.diff = diffText.slice(0, 4000);
+          }
+        }
+      } catch (_) {}
+
+      fixes.push(fixItem);
+    }
+
+    return fixes;
+  } catch (err) {
+    return [{ error: err.message }];
+  }
+}
+
+// -------------------------------------------------------------
 // 3. Search DuckDuckGo (Reddit, Tech Blogs, Articles)
 // -------------------------------------------------------------
 async function searchWebViaDDG(query, siteFilter = '', limit = 4) {
@@ -462,6 +522,29 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           required: ['url'],
         },
       },
+      {
+        name: 'find_commit_fix',
+        description:
+          'Searches merged GitHub pull requests and commits that solved a specific bug, error, or feature issue, returning the exact Git code diff (lines added/removed).',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            query: {
+              type: 'string',
+              description: 'The bug or error message to find commit/PR fixes for (e.g. "useActionState is not a function", "SIGKILL 137").',
+            },
+            repository: {
+              type: 'string',
+              description: 'Optional GitHub repository to scope search to (e.g. "vercel/next.js", "facebook/react").',
+            },
+            max_results: {
+              type: 'number',
+              description: 'Max merged PR fixes to retrieve (default 3, max 5).',
+            },
+          },
+          required: ['query'],
+        },
+      },
     ],
   };
 });
@@ -555,12 +638,38 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     };
   }
 
+  if (name === 'find_commit_fix') {
+    const query = args?.query || '';
+    const repo = args?.repository || '';
+    const limit = Math.min(Math.max(Number(args?.max_results) || 3, 1), 5);
+
+    const fixes = await findCommitFix(query, repo, limit);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              query,
+              repository: repo || 'all public repositories',
+              fixes_found: fixes.length,
+              fixes,
+            },
+            null,
+            2
+          ),
+        },
+      ],
+    };
+  }
+
   throw new Error(`Unknown tool: ${name}`);
 });
 
 export {
   searchStackOverflow,
   searchGitHubIssues,
+  findCommitFix,
   searchWebViaDDG,
   extractThreadSolution,
 };

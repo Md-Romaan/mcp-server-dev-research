@@ -51,6 +51,14 @@ Extracts only the accepted answers, discussion resolutions, and code blocks from
 **Inputs:**
 * `url` *(string, required)*: The URL of the Stack Overflow question, GitHub issue, or documentation page.
 
+### 3. `find_commit_fix`
+Searches merged GitHub pull requests and commits that solved a specific bug or technical problem, extracting the **actual Git diff (lines added `+` and removed `-`)**.
+
+**Inputs:**
+* `query` *(string, required)*: The bug, error code, or function failure (e.g. `"useActionState is not a function"`, `"SIGKILL 137"`).
+* `repository` *(string, optional)*: Scope search to a specific GitHub repository (e.g. `"vercel/next.js"`, `"facebook/react"`).
+* `max_results` *(number, optional)*: Number of merged PR fixes to retrieve (default: 3, max: 5).
+
 ---
 
 ## ⚙️ Installation & Configuration
