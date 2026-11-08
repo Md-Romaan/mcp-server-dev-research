@@ -711,6 +711,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 });
 
 export {
+  detectQueryIntent,
+  cleanErrorQuery,
   searchStackOverflow,
   searchGitHubIssues,
   findCommitFix,
