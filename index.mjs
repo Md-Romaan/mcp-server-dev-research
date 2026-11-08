@@ -64,9 +64,30 @@ function setCache(key, value) {
 }
 
 // -------------------------------------------------------------
-// Query Sanitizer & Normalizer
-// Extracts the core error signature from verbose logs / local paths
+// Query Sanitizer, Normalizer & Intent Classifier
 // -------------------------------------------------------------
+function detectQueryIntent(query) {
+  if (!query) return 'general';
+  const lower = query.toLowerCase();
+
+  // Explicit Bug / Error triggers
+  const bugPatterns = [
+    /\b(?:error|exception|err_|failed|failure|fatal|crash|panic|segfault)\b/i,
+    /\b(?:cannot|can't|unable to|could not)\s+(?:find|read|import|resolve|connect|bind|load|parse)\b/i,
+    /\b(?:undefined|null|nan|is not a function|not defined|not assignable)\b/i,
+    /\b(?:400|401|403|404|429|500|502|503|504)\s+(?:bad request|unauthorized|forbidden|not found|internal)\b/i,
+    /\b(?:exit code\s+\d+|sigkill|sigterm|out of memory|oom)\b/i,
+    /\b(?:bug|broken|regression|reproduce|fix|workaround)\b/i,
+    /:\d+:\d+/, // stack line numbers
+  ];
+
+  for (const pattern of bugPatterns) {
+    if (pattern.test(lower)) return 'bug';
+  }
+
+  return 'general';
+}
+
 function cleanErrorQuery(rawQuery) {
   if (!rawQuery) return '';
   return rawQuery
@@ -195,11 +216,14 @@ async function searchStackOverflow(query, tags = '', limit = 3) {
 // -------------------------------------------------------------
 // 2. GitHub Issues & Resolutions Search (Free GitHub REST API)
 // -------------------------------------------------------------
-async function searchGitHubIssues(query, language = '', limit = 3) {
+async function searchGitHubIssues(query, language = '', limit = 3, intent = 'bug') {
   try {
     const sanitized = cleanErrorQuery(query);
     const langFilter = language ? `+language:${encodeURIComponent(language)}` : '';
-    const qString = `${encodeURIComponent(sanitized)}+in:title,body+type:issue+state:closed${langFilter}`;
+    // If it's a bug, closed issues have the accepted solutions.
+    // If it's a general topic/feature/how-to, search all issues and discussions for architecture and guides.
+    const stateFilter = intent === 'bug' ? '+state:closed' : '';
+    const qString = `${encodeURIComponent(sanitized)}+in:title,body+type:issue${stateFilter}${langFilter}`;
     const url = `https://api.github.com/search/issues?q=${qString}&sort=comments&order=desc&per_page=${limit}`;
 
     const res = await safeFetch(url, {
@@ -213,7 +237,7 @@ async function searchGitHubIssues(query, language = '', limit = 3) {
     const results = await Promise.all(
       items.map(async (item) => {
         const issueObj = {
-          source: 'GitHub Closed Issues',
+          source: intent === 'bug' ? 'GitHub Closed Issues' : 'GitHub Issues & Discussions',
           title: item.title,
           url: item.html_url,
           state: item.state,
@@ -562,13 +586,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
   if (name === 'deep_research_coding_issue') {
-    const query = cleanErrorQuery(args?.query || '');
+    const rawQuery = args?.query || '';
+    const query = cleanErrorQuery(rawQuery);
     const framework = args?.framework_or_language || '';
     const selectedSources = args?.sources || ['stackoverflow', 'github', 'reddit', 'web'];
     const limit = Math.min(Math.max(Number(args?.max_results_per_source) || 3, 1), 5);
+    const intent = detectQueryIntent(rawQuery);
 
     // Check cache
-    const cacheKey = `research:${query}:${framework}:${selectedSources.sort().join(',')}:${limit}`;
+    const cacheKey = `research:${query}:${framework}:${selectedSources.sort().join(',')}:${limit}:${intent}`;
     const cached = getCached(cacheKey);
     if (cached) {
       return {
@@ -587,13 +613,24 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       tasks.push(searchStackOverflow(query, framework, limit));
     }
     if (selectedSources.includes('github')) {
-      tasks.push(searchGitHubIssues(query, framework, limit));
+      tasks.push(searchGitHubIssues(query, framework, limit, intent));
     }
     if (selectedSources.includes('reddit')) {
       tasks.push(searchWebViaDDG(query, 'reddit.com', limit));
     }
     if (selectedSources.includes('web')) {
-      tasks.push(searchWebViaDDG(`${query} ${framework} solution fix`, '', limit));
+      // Adaptive query formulation:
+      // If a bug, bias towards fixes and troubleshooting threads
+      // If general, bias towards authoritative guides, architecture, and documentation
+      const webQuery = intent === 'bug'
+        ? `${query} ${framework} solution fix`
+        : `${query} ${framework} guide documentation`;
+      tasks.push(searchWebViaDDG(webQuery, '', limit));
+
+      // For general topics, also run an extra concurrent task targeting official docs
+      if (intent === 'general' && framework) {
+        tasks.push(searchWebViaDDG(`${query} site:${encodeURIComponent(framework)}.org OR site:docs.${encodeURIComponent(framework)}.org OR site:developer.mozilla.org`, '', 2));
+      }
     }
 
     const settled = await Promise.allSettled(tasks);
@@ -607,6 +644,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
     const payload = {
       query,
+      intent,
       framework: framework || 'none specified',
       total_findings: combinedResults.length,
       findings: combinedResults,
