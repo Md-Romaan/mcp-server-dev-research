@@ -119,6 +119,51 @@ npm install
 
 ---
 
+## 🔍 Common Search Queries & Example Scenarios
+
+This MCP server is engineered to resolve high-frequency developer debugging scenarios that standard LLM search engines fail on:
+
+| Scenario / Error Category | Example Queries | What Dev Research Solves |
+| :--- | :--- | :--- |
+| **React / Next.js Hydration** | `Error: Hydration failed because the initial UI does not match that which was rendered on the server` | Pulls verified server vs client suppression patterns from closed issues. |
+| **Runtime Invariant Errors** | `Objects are not valid as a React child (found: object with keys {id, name})` | Extracts accepted Stack Overflow solutions with exact `.map()` object destructuring code. |
+| **Breaking API Changes** | `TypeError: useActionState is not a function in React 19` | Locates merged PRs with the exact function rename and migration diffs. |
+| **Container & OOM Kills** | `Command failed with exit code 137 (out of memory / SIGKILL)` | Finds high-vote Docker/Kubernetes memory allocation configurations. |
+| **Node.js Module Resolution** | `ERR_REQUIRE_ESM: Must use import to load ES Module` | Delivers exact `package.json` `"type": "module"` and interop configurations without spam. |
+
+---
+
+## ⚡ Setup for Popular AI Coding Assistants
+
+### Cursor IDE
+1. Open Cursor Settings -> **Features** -> **MCP Servers**.
+2. Click **Add New MCP Server**.
+3. Name: `dev-research`, Type: `command`, Command: `node /absolute/path/to/mcp-server-dev-research/index.mjs`.
+
+### Claude Code (CLI)
+Add the server using the Claude CLI:
+```bash
+claude mcp add dev-research node /absolute/path/to/mcp-server-dev-research/index.mjs
+```
+
+### Claude Desktop
+Edit your `claude_desktop_config.json`:
+```json
+{
+  "mcpServers": {
+    "dev-research": {
+      "command": "node",
+      "args": ["C:/absolute/path/to/mcp-server-dev-research/index.mjs"]
+    }
+  }
+}
+```
+
+### Windsurf
+Add to your `~/.codeium/windsurf/mcp_config.json` under `mcpServers`.
+
+---
+
 ## 📄 License
 
 MIT
