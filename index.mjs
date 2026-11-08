@@ -150,41 +150,42 @@ async function searchStackOverflow(query, tags = '', limit = 3) {
       items = await fetchSO(false, true);
     }
 
-    const results = [];
-    for (const q of items) {
-      const qObj = {
-        source: 'Stack Overflow',
-        title: q.title,
-        url: q.link,
-        score: q.score,
-        isAnswered: q.is_answered,
-        acceptedAnswerId: q.accepted_answer_id,
-        questionBody: turndownService.turndown(q.body || '').slice(0, 1500),
-        answers: [],
-      };
+    const results = await Promise.all(
+      items.map(async (q) => {
+        const qObj = {
+          source: 'Stack Overflow',
+          title: q.title,
+          url: q.link,
+          score: q.score,
+          isAnswered: q.is_answered,
+          acceptedAnswerId: q.accepted_answer_id,
+          questionBody: turndownService.turndown(q.body || '').slice(0, 1500),
+          answers: [],
+        };
 
-      // Fetch the top-voted answers for this question
-      if (q.question_id && q.is_answered) {
-        try {
-          const ansUrl = `https://api.stackexchange.com/2.3/questions/${q.question_id}/answers?order=desc&sort=votes&site=stackoverflow&pagesize=2&filter=withbody`;
-          const ansRes = await safeFetch(ansUrl);
-          if (ansRes.ok) {
-            const ansData = await ansRes.json();
-            if (Array.isArray(ansData.items)) {
-              for (const ans of ansData.items) {
-                const bodyMd = turndownService.turndown(ans.body || '');
-                qObj.answers.push({
-                  isAccepted: !!ans.is_accepted,
-                  score: ans.score,
-                  body: bodyMd.slice(0, 3000),
-                });
+        // Fetch top-voted answers concurrently
+        if (q.question_id && q.is_answered) {
+          try {
+            const ansUrl = `https://api.stackexchange.com/2.3/questions/${q.question_id}/answers?order=desc&sort=votes&site=stackoverflow&pagesize=2&filter=withbody`;
+            const ansRes = await safeFetch(ansUrl);
+            if (ansRes.ok) {
+              const ansData = await ansRes.json();
+              if (Array.isArray(ansData.items)) {
+                for (const ans of ansData.items) {
+                  const bodyMd = turndownService.turndown(ans.body || '');
+                  qObj.answers.push({
+                    isAccepted: !!ans.is_accepted,
+                    score: ans.score,
+                    body: bodyMd.slice(0, 3000),
+                  });
+                }
               }
             }
-          }
-        } catch (_) { }
-      }
-      results.push(qObj);
-    }
+          } catch (_) { }
+        }
+        return qObj;
+      })
+    );
     return results;
   } catch (err) {
     return [{ source: 'Stack Overflow', error: err.message }];
@@ -209,39 +210,40 @@ async function searchGitHubIssues(query, language = '', limit = 3) {
     const data = await res.json();
     const items = data.items || [];
 
-    const results = [];
-    for (const item of items) {
-      const issueObj = {
-        source: 'GitHub Closed Issues',
-        title: item.title,
-        url: item.html_url,
-        state: item.state,
-        commentsCount: item.comments,
-        body: (item.body || '').slice(0, 1000),
-        topComments: [],
-      };
+    const results = await Promise.all(
+      items.map(async (item) => {
+        const issueObj = {
+          source: 'GitHub Closed Issues',
+          title: item.title,
+          url: item.html_url,
+          state: item.state,
+          commentsCount: item.comments,
+          body: (item.body || '').slice(0, 1000),
+          topComments: [],
+        };
 
-      // If comments exist, fetch the last/solution comments
-      if (item.comments > 0 && item.comments_url) {
-        try {
-          const commRes = await safeFetch(`${item.comments_url}?per_page=3&direction=desc`, {
-            headers: getGitHubHeaders(),
-          });
-          if (commRes.ok) {
-            const commData = await commRes.json();
-            if (Array.isArray(commData)) {
-              issueObj.topComments = commData.map((c) => ({
-                user: c.user?.login,
-                reactions: c.reactions?.total_count || 0,
-                body: (c.body || '').slice(0, 2000),
-              }));
+        // Fetch solution comments concurrently
+        if (item.comments > 0 && item.comments_url) {
+          try {
+            const commRes = await safeFetch(`${item.comments_url}?per_page=3&direction=desc`, {
+              headers: getGitHubHeaders(),
+            });
+            if (commRes.ok) {
+              const commData = await commRes.json();
+              if (Array.isArray(commData)) {
+                issueObj.topComments = commData.map((c) => ({
+                  user: c.user?.login,
+                  reactions: c.reactions?.total_count || 0,
+                  body: (c.body || '').slice(0, 2000),
+                }));
+              }
             }
-          }
-        } catch (_) { }
-      }
+          } catch (_) { }
+        }
 
-      results.push(issueObj);
-    }
+        return issueObj;
+      })
+    );
     return results;
   } catch (err) {
     return [{ source: 'GitHub Issues', error: err.message }];
@@ -266,43 +268,42 @@ async function findCommitFix(query, repository = '', limit = 3) {
     const data = await res.json();
     const items = data.items || [];
 
-    const fixes = [];
-    for (const item of items) {
-      if (!item.pull_request?.url) continue;
+    const fixPromises = items
+      .filter((item) => Boolean(item.pull_request?.url))
+      .map(async (item) => {
+        const fixItem = {
+          title: item.title,
+          prUrl: item.html_url,
+          state: 'merged',
+          author: item.user?.login,
+          diff: '',
+        };
 
-      const fixItem = {
-        title: item.title,
-        prUrl: item.html_url,
-        state: 'merged',
-        author: item.user?.login,
-        diff: '',
-      };
-
-      try {
-        // Try fetching via .diff on the web URL first (fast & reliable)
-        const webDiffRes = await safeFetch(`${item.html_url}.diff`);
-        if (webDiffRes.ok) {
-          const diffText = await webDiffRes.text();
-          fixItem.diff = diffText.slice(0, 4000);
-        } else {
-          // Fallback to GitHub REST API diff
-          const diffRes = await safeFetch(item.pull_request.url, {
-            headers: {
-              ...getGitHubHeaders(),
-              Accept: 'application/vnd.github.v3.diff',
-            },
-          });
-          if (diffRes.ok) {
-            const diffText = await diffRes.text();
+        try {
+          // Try fetching via .diff on the web URL first (fast & reliable)
+          const webDiffRes = await safeFetch(`${item.html_url}.diff`);
+          if (webDiffRes.ok) {
+            const diffText = await webDiffRes.text();
             fixItem.diff = diffText.slice(0, 4000);
+          } else {
+            // Fallback to GitHub REST API diff
+            const diffRes = await safeFetch(item.pull_request.url, {
+              headers: {
+                ...getGitHubHeaders(),
+                Accept: 'application/vnd.github.v3.diff',
+              },
+            });
+            if (diffRes.ok) {
+              const diffText = await diffRes.text();
+              fixItem.diff = diffText.slice(0, 4000);
+            }
           }
-        }
-      } catch (_) {}
+        } catch (_) { }
 
-      fixes.push(fixItem);
-    }
+        return fixItem;
+      });
 
-    return fixes;
+    return await Promise.all(fixPromises);
   } catch (err) {
     return [{ error: err.message }];
   }
@@ -365,10 +366,12 @@ async function extractThreadSolution(targetUrl) {
     const soMatch = targetUrl.match(/stackoverflow\.com\/questions\/(\d+)/);
     if (soMatch) {
       const qid = soMatch[1];
-      const qRes = await safeFetch(`https://api.stackexchange.com/2.3/questions/${qid}?site=stackoverflow&filter=withbody`);
-      const ansRes = await safeFetch(
-        `https://api.stackexchange.com/2.3/questions/${qid}/answers?order=desc&sort=votes&site=stackoverflow&pagesize=3&filter=withbody`
-      );
+      const [qRes, ansRes] = await Promise.all([
+        safeFetch(`https://api.stackexchange.com/2.3/questions/${qid}?site=stackoverflow&filter=withbody`),
+        safeFetch(
+          `https://api.stackexchange.com/2.3/questions/${qid}/answers?order=desc&sort=votes&site=stackoverflow&pagesize=3&filter=withbody`
+        ),
+      ]);
 
       let markdown = '';
       if (qRes.ok) {
@@ -395,22 +398,23 @@ async function extractThreadSolution(targetUrl) {
     const ghMatch = targetUrl.match(/github\.com\/([^/]+)\/([^/]+)\/issues\/(\d+)/);
     if (ghMatch) {
       const [, owner, repo, issueNum] = ghMatch;
-      const issueRes = await safeFetch(`https://api.github.com/repos/${owner}/${repo}/issues/${issueNum}`, {
-        headers: {
-          Accept: 'application/vnd.github.v3+json',
-          'User-Agent': 'DevResearchMCP-Server/1.0',
-        },
-      });
-
-      const commRes = await safeFetch(
-        `https://api.github.com/repos/${owner}/${repo}/issues/${issueNum}/comments?per_page=5&direction=desc`,
-        {
+      const [issueRes, commRes] = await Promise.all([
+        safeFetch(`https://api.github.com/repos/${owner}/${repo}/issues/${issueNum}`, {
           headers: {
             Accept: 'application/vnd.github.v3+json',
             'User-Agent': 'DevResearchMCP-Server/1.0',
           },
-        }
-      );
+        }),
+        safeFetch(
+          `https://api.github.com/repos/${owner}/${repo}/issues/${issueNum}/comments?per_page=5&direction=desc`,
+          {
+            headers: {
+              Accept: 'application/vnd.github.v3+json',
+              'User-Agent': 'DevResearchMCP-Server/1.0',
+            },
+          }
+        ),
+      ]);
 
       let markdown = '';
       if (issueRes.ok) {
