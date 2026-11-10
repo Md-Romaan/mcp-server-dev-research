@@ -3,6 +3,7 @@
 [![GitHub Release](https://img.shields.io/github/v/release/Md-Romaan/mcp-server-dev-research?color=blue&logo=github)](https://github.com/Md-Romaan/mcp-server-dev-research/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP Compatible](https://img.shields.io/badge/MCP-Compatible-green.svg)](https://modelcontextprotocol.io/)
+[![MCP Badge](https://lobehub.com/badge/mcp-full/md-romaan-mcp-server-dev-research?theme=light)](https://lobehub.com/mcp/md-romaan-mcp-server-dev-research)
 
 ![Dev Deep Research Architecture](./architecture.jpg)
 
