@@ -185,5 +185,5 @@ Add to your `~/.codeium/windsurf/mcp_config.json` under `mcpServers`.
 
 ## 📄 License
 
-MIT
+MIT License © 2026 Md Romaan - see the [LICENSE](LICENSE) file for details.
 

@@ -2,6 +2,8 @@
   "name": "mcp-server-dev-research",
   "version": "1.0.0",
   "description": "Deep Research MCP server for coding issues, errors, Stack Overflow, GitHub, Reddit, and web articles",
+  "license": "MIT",
+  "author": "Md Romaan",
   "type": "module",
   "main": "index.mjs",
   "scripts": {
